@@ -1,4 +1,7 @@
-# SillyTavern - Discord Home Link
+# SillyTavern - Discord Home Link - Removing User Switching
+
+## This is an edit of an amazing extention but I needed only one part of it.
+## Credit to LenAnderson for his/her amazing work
 
 When using the [Discord Inspired Theme](https://github.com/nyxkrage/st-discord-inspired), click on the SillyTavern logo to go back to the landing page.
 
