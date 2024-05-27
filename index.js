@@ -1,52 +1,11 @@
-import { getRequestHeaders } from '../../../../script.js';
 import { showLoader } from '../../../loader.js';
-import { POPUP_RESULT, POPUP_TYPE, Popup } from '../../../popup.js';
-import { executeSlashCommands, registerSlashCommand } from '../../../slash-commands.js';
+import { POPUP_TYPE, Popup } from '../../../popup.js';
+import { executeSlashCommands } from '../../../slash-commands.js';
 import { SlashCommand } from '../../../slash-commands/SlashCommand.js';
-import { ARGUMENT_TYPE, SlashCommandArgument } from '../../../slash-commands/SlashCommandArgument.js';
 import { SlashCommandParser } from '../../../slash-commands/SlashCommandParser.js';
-import { currentUser } from '../../../user.js';
 import { delay } from '../../../utils.js';
 
 // ----------------- COPIED BECAUSE NOT EXPORTED --------------------------------
-/**
- * Attempts to log in the user.
- * @param {string} handle User's handle
- * @param {string} password User's password
- * @returns {Promise<{ success:boolean, error:object}>}
- */
-async function performLogin(handle, password) {
-    const userInfo = {
-        handle: handle,
-        password: password,
-    };
-
-    try {
-        const response = await fetch('/api/users/login', {
-            method: 'POST',
-            headers: getRequestHeaders(),
-            body: JSON.stringify(userInfo),
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            // return displayError(errorData.error || 'An error occurred');
-            return { success:false, error:errorData.error };
-        }
-
-        const data = await response.json();
-
-        if (data.handle) {
-            console.log(`Successfully logged in as ${handle}!`);
-            redirectToHome();
-            return { success:true, error:null };
-        }
-    } catch (error) {
-        console.error('Error logging in:', error);
-        // displayError(String(error));
-        return { success:false, error: error };
-    }
-}
 /**
  * Redirects the user to the home page.
  * Preserves the query string.
@@ -54,58 +13,8 @@ async function performLogin(handle, password) {
 function redirectToHome() {
     window.location.href = '/' + window.location.search;
 }
-/**
- * Gets a list of users from the server.
- * @returns {Promise<object>} List of users
- */
-async function getUserList() {
-    const response = await fetch('/api/users/list', {
-        method: 'POST',
-        headers: getRequestHeaders(),
-    });
-
-    if (!response.ok) {
-        const errorData = await response.json();
-        // return displayError(errorData.error || 'An error occurred');
-        return;
-    }
-
-    if (response.status === 204) {
-        // discreetLogin = true;
-        return [];
-    }
-
-    const userListObj = await response.json();
-    console.log(userListObj);
-    return userListObj;
-}
 // ----------------- END OF: COPIED BECAUSE NOT EXPORTED ------------------------
 
-
-
-
-const switchUser = async(name)=>{
-    const users = await getUserList();
-    const u = users.find(it=>it.handle.toLowerCase() == name.toLowerCase() || it.name.toLowerCase() == name.toLowerCase());
-    if (!u) {
-        toastr.error(`No user "${name}"`);
-        return;
-    }
-    let pass = '';
-    if (u.password) {
-        const dlg = new Popup(`<h3>${u.name}<h3><h4>Password:</h4>`, POPUP_TYPE.INPUT, '');
-        await dlg.show();
-        if (dlg.result !== POPUP_RESULT.AFFIRMATIVE) return;
-        pass = dlg.value;
-    }
-    const result = await performLogin(u.handle, pass);
-    if (!result.success) {
-        toastr.error(result.error);
-    }
-};
-const logout = async()=>{
-    document.querySelector('#logout_button').click();
-};
 const restart = async()=>{
     toastr.info('Restarting SillyTavern');
     showLoader();
@@ -129,25 +38,8 @@ const goHome = async()=>{
     executeSlashCommands('/closechat');
 };
 
-
 let hasProcessPlugin = (await fetch('/api/plugins/process/', { method:'HEAD' })).ok;
 
-
-SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'account',
-    callback: (args, value)=>switchUser(value),
-    unnamedArgumentList: [
-        SlashCommandArgument.fromProps({
-            description: 'username of the account to switch to',
-            typeList: [ARGUMENT_TYPE.STRING],
-            isRequired: true,
-        }),
-    ],
-    helpString: 'Sign out of the current account and into the given account.',
-}));
-SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'logout',
-    callback: (args, value)=>logout(),
-    helpString: 'Sign out of the current account and return to the login page.',
-}));
 if (hasProcessPlugin) {
     SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'restart',
         callback: (args, value)=>restart(),
@@ -159,10 +51,7 @@ if (hasProcessPlugin) {
     }));
 }
 
-
 let isDiscord = null;
-let user;
-let avatar;
 /**@type {HTMLElement}*/
 let trigger;
 
@@ -173,7 +62,6 @@ const clickListener = async(evt)=>{
 
 const contextListener = async(evt)=>{
     evt.preventDefault();
-    const users = await getUserList();
     const ctx = document.createElement('div'); {
         ctx.classList.add('stdhl--ctxBlocker');
         ctx.title = '';
@@ -205,45 +93,6 @@ const contextListener = async(evt)=>{
                     homeItem.append(name);
                 }
                 list.append(homeItem);
-            }
-            users.sort((a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
-            for (const u of users.filter(it=>it.handle != currentUser.handle)) {
-                const item = document.createElement('li'); {
-                    item.classList.add('stdhl--ctxItem');
-                    item.classList.add('list-group-item');
-                    item.setAttribute('data-stdhl--user', u.name);
-                    item.title = `Switch to user "${u.name}"`;
-                    item.addEventListener('click', async()=>switchUser(u.handle));
-                    const ava = document.createElement('div'); {
-                        ava.classList.add('stdhl--ctxAvatar');
-                        ava.style.backgroundImage = `url(${u.avatar})`;
-                        item.append(ava);
-                    }
-                    const name = document.createElement('div'); {
-                        name.classList.add('stdhl--ctxName');
-                        name.textContent = u.name;
-                        item.append(name);
-                    }
-                    list.append(item);
-                }
-            }
-            const logoutItem = document.createElement('li'); {
-                logoutItem.classList.add('stdhl--ctxItem');
-                logoutItem.classList.add('list-group-item');
-                logoutItem.title = 'Logout and return to login screen';
-                logoutItem.addEventListener('click', async()=>logout());
-                const ava = document.createElement('div'); {
-                    ava.classList.add('stdhl--ctxAvatar');
-                    ava.classList.add('stdhl--ctxIcon');
-                    ava.classList.add('fa-solid', 'fa-right-from-bracket');
-                    logoutItem.append(ava);
-                }
-                const name = document.createElement('div'); {
-                    name.classList.add('stdhl--ctxName');
-                    name.textContent = 'Logout';
-                    logoutItem.append(name);
-                }
-                list.append(logoutItem);
             }
             if (hasProcessPlugin) {
                 const reloadItem = document.createElement('li'); {
@@ -293,8 +142,6 @@ const checkDiscord = async()=>{
     let newIsDiscord = window.getComputedStyle(document.body).getPropertyValue('--nav-bar-width') !== '';
     if (isDiscord != newIsDiscord) {
         isDiscord = newIsDiscord;
-        user = currentUser.name;
-        avatar = currentUser.avatar;
         document.body.classList[isDiscord ? 'add' : 'remove']('stdhl');
         document.body.classList[isDiscord ? 'remove' : 'add']('stdhl--nonDiscord');
         if (trigger) {
@@ -305,20 +152,17 @@ const checkDiscord = async()=>{
         if (isDiscord) {
             trigger = document.querySelector('#top-bar');
             trigger.style.setProperty('--stdhl--iconSize', 'calc(var(--nav-bar-width) - 16px)');
-            hint = 'Click to return to landing page\nRight-click to switch users, logout, restart server, or shutdown server';
-            const sep = '–'.repeat(Math.min(50, Math.max(user.length,...hint.split('\n').map(it=>it.length))));
-            trigger.title = `Current User: ${user}\n${sep}\n${hint}`;
+            hint = 'Click to return to landing page\nRight-click to restart server or shutdown server';
+            trigger.title = `${hint}`;
             trigger.addEventListener('contextmenu', contextListener);
             trigger.addEventListener('click', clickListener);
         } else {
             trigger = document.querySelector('#user-settings-button > .drawer-toggle');
             trigger.style.setProperty('--stdhl--iconSize', 'calc(var(--topBarBlockSize))');
-            hint = 'Right click to return to landing page, switch users, logout, restart server, or shutdown server';
-            const sep = '–'.repeat(Math.min(50, Math.max(user.length,...hint.split('\n').map(it=>it.length))));
-            trigger.title = `User Settings\n${sep}\nCurrent User: ${user}\n${sep}\n${hint}`;
+            hint = 'Click to return to landing page\nRight-click to restart server or shutdown server';
+            trigger.title = `${hint}`;
             trigger.addEventListener('contextmenu', contextListener);
         }
-        trigger.style.setProperty('--stdhl--avatar', `url(${avatar})`);
     }
     setTimeout(checkDiscord, 2000);
 };
