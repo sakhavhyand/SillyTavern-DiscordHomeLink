@@ -15,17 +15,19 @@ function redirectToHome() {
 }
 // ----------------- END OF: COPIED BECAUSE NOT EXPORTED ------------------------
 
-const restart = async()=>{
+const restart = async(linux = false)=>{
     toastr.info('Restarting SillyTavern');
     showLoader();
-    await fetch('/api/plugins/process/restart');
+    if (linux){ await fetch('/api/plugins/process/restart-linux'); }
+    else { await fetch('/api/plugins/process/restart'); }
     await delay(1000);
     while (!(await fetch('/', { method:'HEAD' })).ok) await delay(100);
     location.reload();
 };
-const shutdown = async()=>{
+const shutdown = async(linux = false)=>{
     toastr.info('Shutting down SillyTavern');
-    await fetch('/api/plugins/process/exit');
+    if (linux){ await fetch('/api/plugins/process/exit-linux'); }
+    else { await fetch('/api/plugins/process/exit'); }
     try {
         window.close();
     } catch {
@@ -48,6 +50,14 @@ if (hasProcessPlugin) {
     SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'shutdown',
         callback: (args, value)=>shutdown(),
         helpString: 'Shut down SillyTavern server and close client.',
+    }));
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'restart-linux',
+        callback: (args, value)=>restart(true),
+        helpString: 'LINUX-Restart SillyTavern server and reload client.',
+    }));
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'shutdown-linux',
+        callback: (args, value)=>shutdown(true),
+        helpString: 'LINUX-Shut down SillyTavern server and close client.',
     }));
 }
 
@@ -130,6 +140,42 @@ const contextListener = async(evt)=>{
                         exitItem.append(name);
                     }
                     list.append(exitItem);
+                }
+                const reloadItemLNX = document.createElement('li'); {
+                    reloadItemLNX.classList.add('stdhl--ctxItem');
+                    reloadItemLNX.classList.add('list-group-item');
+                    reloadItemLNX.title = 'Restart SillyTavern Linux server and reload client';
+                    reloadItemLNX.addEventListener('click', async()=>restart(true));
+                    const ava = document.createElement('div'); {
+                        ava.classList.add('stdhl--ctxAvatar');
+                        ava.classList.add('stdhl--ctxIcon');
+                        ava.classList.add('fa-solid', 'fa-rotate');
+                        reloadItemLNX.append(ava);
+                    }
+                    const name = document.createElement('div'); {
+                        name.classList.add('stdhl--ctxName');
+                        name.textContent = 'LINUX-Restart';
+                        reloadItemLNX.append(name);
+                    }
+                    list.append(reloadItemLNX);
+                }
+                const exitItemLNX = document.createElement('li'); {
+                    exitItemLNX.classList.add('stdhl--ctxItem');
+                    exitItemLNX.classList.add('list-group-item');
+                    exitItemLNX.title = 'Shut down SillyTavern Linux server and close client';
+                    exitItemLNX.addEventListener('click', async()=>shutdown(true));
+                    const ava = document.createElement('div'); {
+                        ava.classList.add('stdhl--ctxAvatar');
+                        ava.classList.add('stdhl--ctxIcon');
+                        ava.classList.add('fa-solid', 'fa-power-off');
+                        exitItemLNX.append(ava);
+                    }
+                    const name = document.createElement('div'); {
+                        name.classList.add('stdhl--ctxName');
+                        name.textContent = 'LINUX-Shut Down';
+                        exitItemLNX.append(name);
+                    }
+                    list.append(exitItemLNX);
                 }
             }
             ctx.append(list);
